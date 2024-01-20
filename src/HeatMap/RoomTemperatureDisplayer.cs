@@ -9,37 +9,33 @@ namespace HeatMap
     {
         public List<IntVec3> LabelCells { get; } = new List<IntVec3>();
 
-		private Map _map = null;
+		private Map _prevMap = null;
         private int _nextUpdateTick = 0;
 
         public void Update(int updateDelay)
-        {
-            var tick = Find.TickManager.TicksGame;
-            if (tick < _nextUpdateTick)
+		{
+			var tick = Find.TickManager.TicksGame;
+			var map = Find.CurrentMap;
+			if (_prevMap == map && tick < _nextUpdateTick)
                 return;
+            _prevMap = map;
 
             _nextUpdateTick = tick + updateDelay;
             LabelCells.Clear();
 
-			if (_map == null) // Shouldn't happen, but better to catch it anyway
-			{
-				Log.Message($"HeatMap: RoomTemperatureDisplayer.Update: {nameof(_map)} == null!");
-				_map = Find.CurrentMap;
-			}
-
-			foreach (var room in _map.regionGrid.allRooms)
+			foreach (var room in map.regionGrid.allRooms)
             {
                 if (room.PsychologicallyOutdoors || room.Fogged || room.IsDoorway || room.BorderCells.Count() == 0)
                     continue;
 
-                var cell = GetBestCellForRoom(room, _map);
+                var cell = GetBestCellForRoom(room, map);
                 LabelCells.Add(cell);
             }
         }
 
         private static IntVec3 GetBestCellForRoom(Room room, Map map)
-        {
-            var topLeftCorner = room.BorderCells.First();
+		{
+			var topLeftCorner = room.BorderCells.First();
 
             var left = int.MaxValue;
             var top = int.MinValue;
@@ -67,7 +63,7 @@ namespace HeatMap
 
             var midCell = new IntVec3(midX, 0, midZ);
 
-            if (midCell.GetRoom(map) == room)
+			if (midCell.GetRoom(map) == room)
                 return midCell;
 
             var possiblyBetterTopLeftCorner = topLeftCorner;
@@ -83,25 +79,15 @@ namespace HeatMap
 		{
 			LabelCells.Clear();
             _nextUpdateTick = 0;
-			_map = Find.CurrentMap;
 		}
 		
 		public void OnGUI()
         {
-			if (_map == null) // Shouldn't happen, but better to catch it anyway
-			{
-				Log.Message($"HeatMap: RoomTemperatureDisplayer.OnGUI: {nameof(_map)} == null!");
-				_map = Find.CurrentMap;
-			}
-
-            Text.Font = GameFont.Tiny;
-            //CellRect currentViewRect = Find.CameraDriver.CurrentViewRect;
-            foreach (var cell in LabelCells)
+            var map = Find.CurrentMap;
+			Text.Font = GameFont.Tiny;
+			foreach (var cell in LabelCells)
             {
-                //if (!currentViewRect.Contains(cell))
-                //    continue;
-
-                var room = cell.GetRoom(_map);
+                var room = cell.GetRoom(map);
                 if (room == null)
                     continue;
 
