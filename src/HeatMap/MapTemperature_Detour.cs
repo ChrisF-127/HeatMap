@@ -69,7 +69,7 @@ namespace HeatMap
             // call static System.Boolean HeatMap.MapTemperature_GetCellBool_Patch::Check(Verse.IntVec3 intVec, Verse.Map map)
             output.Add(
                 new CodeInstruction(OpCodes.Call, 
-                typeof(MapTemperature_GetCellBool_Patch).GetMethod(nameof(MapTemperature_GetCellBool_Patch.CheckRoom), BindingFlags.Static | BindingFlags.NonPublic)));
+                typeof(MapTemperature_GetCellBool_Patch).GetMethod(nameof(CheckRoom), BindingFlags.Static | BindingFlags.NonPublic)));
             // ret NULL
             output.Add(new CodeInstruction(OpCodes.Ret));
 
