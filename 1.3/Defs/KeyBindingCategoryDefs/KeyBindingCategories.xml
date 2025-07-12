@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+
+<Defs>
+	<KeyBindingCategoryDef>
+		<defName>HeatMap</defName>
+		<label>Heat Map</label>
+		<description>Shortcuts for the Heat Map mod.</description>
+	</KeyBindingCategoryDef>
+</Defs>
