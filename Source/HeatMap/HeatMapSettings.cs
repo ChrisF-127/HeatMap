@@ -39,19 +39,19 @@ namespace HeatMap
 		public bool OverrideVanillaOverlay
 		{
 			get => _overrideVanillaOverlay;
-			set => Util.SetValue(ref _overrideVanillaOverlay, value, HeatMap.Instance.ResetAll);
+			set => Util.SetValue(ref _overrideVanillaOverlay, value, v => HeatMap.Instance.ResetAll());
 		}
 		private bool _showIndoorsOnly = Default_ShowIndoorsOnly;
 		public bool ShowIndoorsOnly
 		{
 			get => _showIndoorsOnly;
-			set => Util.SetValue(ref _showIndoorsOnly, value, HeatMap.Instance.ResetAll);
+			set => Util.SetValue(ref _showIndoorsOnly, value, v => HeatMap.Instance.ResetAll());
 		}
 		private int _overlayOpacity = Default_OverlayOpacity;
 		public int OverlayOpacity
 		{
 			get => _overlayOpacity;
-			set => Util.SetValue(ref _overlayOpacity, value, HeatMap.Instance.ResetAll);
+			set => Util.SetValue(ref _overlayOpacity, value, v => HeatMap.Instance.ResetAll());
 		}
 		public int UpdateDelay { get; set; } = Default_UpdateDelay;
 
@@ -60,7 +60,7 @@ namespace HeatMap
 		public int OutdoorThermometerOpacity
 		{
 			get => _outdoorThermometerOpacity;
-			set => Util.SetValue(ref _outdoorThermometerOpacity, value, HeatMap.Instance.ClearTemperatureTextureCache);
+			set => Util.SetValue(ref _outdoorThermometerOpacity, value, v => HeatMap.Instance.ClearTemperatureTextureCache());
 		}
 		public bool OutdoorThermometerFixed { get; set; } = Default_OutdoorThermometerFixed;
 		public float OutdoorThermometerRight { get; set; } = Default_OutdoorThermometerRight;
@@ -68,17 +68,17 @@ namespace HeatMap
 
 		public bool ShowTemperatureOverRooms { get; set; } = Default_ShowTemperatureOverRooms;
 
-		public ValueActionWrapper<float>[] GradientHue { get; set; } = Default_GradientHue.Select(v => new ValueActionWrapper<float>(v, HeatMap.Instance.ResetAll)).ToArray();
+		public ValueSetting<float>[] GradientHue { get; } = new ValueSetting<float>[GradientSteps];
 
 		public bool UseCustomRange { get; set; }
 		private int _customRangeMin = Default_CustomRangeMin;
 		public int CustomRangeMin
 		{
 			get => _customRangeMin;
-			set => Util.SetValue(ref _customRangeMin, value, () =>
+			set => Util.SetValue(ref _customRangeMin, value, v =>
 			{
-				if (_customRangeMax <= value)
-					_customRangeMax = value + 1;
+				if (_customRangeMax <= v)
+					_customRangeMax = v + 1;
 				HeatMap.Instance.ResetAll();
 			});
 		}
@@ -86,10 +86,10 @@ namespace HeatMap
 		public int CustomRangeMax
 		{
 			get => _customRangeMax;
-			set => Util.SetValue(ref _customRangeMax, value, () =>
+			set => Util.SetValue(ref _customRangeMax, value, v =>
 			{
-				if (_customRangeMin >= value)
-					_customRangeMin = value - 1;
+				if (_customRangeMin >= v)
+					_customRangeMin = v - 1;
 				HeatMap.Instance.ResetAll();
 			});
 		}
@@ -97,10 +97,10 @@ namespace HeatMap
 		public int CustomRangeComfortMin
 		{
 			get => _customRangeComfortMin;
-			set => Util.SetValue(ref _customRangeComfortMin, value, () =>
+			set => Util.SetValue(ref _customRangeComfortMin, value, v =>
 			{
-				if (_customRangeComfortMax <= value)
-					_customRangeComfortMax = value + 1;
+				if (_customRangeComfortMax <= v)
+					_customRangeComfortMax = v + 1;
 				HeatMap.Instance.ResetAll();
 			});
 		}
@@ -108,10 +108,10 @@ namespace HeatMap
 		public int CustomRangeComfortMax
 		{
 			get => _customRangeComfortMax;
-			set => Util.SetValue(ref _customRangeComfortMax, value, () =>
+			set => Util.SetValue(ref _customRangeComfortMax, value, v =>
 			{
-				if (_customRangeComfortMin >= value)
-					_customRangeComfortMin = value - 1;
+				if (_customRangeComfortMin >= v)
+					_customRangeComfortMin = v - 1;
 				HeatMap.Instance.ResetAll();
 			});
 		}
@@ -126,8 +126,6 @@ namespace HeatMap
 		public static readonly int Default_CustomRangeMax;
 		public static readonly int Default_CustomRangeComfortMin;
 		public static readonly int Default_CustomRangeComfortMax;
-
-		public static readonly float[] Default_GradientHue = new float[GradientSteps];
 		#endregion
 
 		#region CONSTRUCTORS
@@ -139,11 +137,17 @@ namespace HeatMap
 			Default_CustomRangeMax = MappedRange.max;
 			Default_CustomRangeComfortMin = MinComfortTemp;
 			Default_CustomRangeComfortMax = MaxComfortTemp;
+		}
 
+		public HeatMapSettings()
+		{
 			// 0° = red, 60° = yellow, 120° = green, 180° = cyan, 240° = blue, 300° = magenta
 			//  standard begins at blue (low) and ends at red (high)
 			for (int i = 0; i < GradientSteps; i++)
-				Default_GradientHue[i] = 240f - 60f * i;
+			{
+				var defaultHue = 240f - 60f * i;
+				GradientHue[i] = new ValueSetting<float>(nameof(GradientHue) + "_" + i, "", "", defaultHue, defaultHue, v => HeatMap.Instance.ResetAll());
+			}
 		}
 		#endregion
 
@@ -248,19 +252,20 @@ namespace HeatMap
 
 				for (int i = 0; i < GradientSteps; i++)
 				{
-					GradientHue[i].Value = ControlsBuilder.CreateNumeric(
+					var hue = GradientHue[i];
+					hue.Value = ControlsBuilder.CreateNumeric(
 						ref offsetY,
 						width,
 						"FALCHM.GradientHue".Translate(new NamedArgument(i, "index")),
 						"FALCHM.GradientHueDesc".Translate(
-							new NamedArgument(Default_GradientHue[i], "default"),
+							new NamedArgument(hue.DefaultValue, "default"),
 							new NamedArgument(MappedRange.min, "min"),
 							new NamedArgument(MappedRange.max, "max"),
 							new NamedArgument(MinComfortTemp, "comfortMin"),
 							new NamedArgument(MaxComfortTemp, "comfortMax")),
-						GradientHue[i].Value,
-						Default_GradientHue[i],
-						nameof(GradientHue) + "_" + i,
+						hue.Value,
+						hue.DefaultValue,
+						hue.Name,
 						0f,
 						360f,
 						unit: "°");
@@ -393,9 +398,10 @@ namespace HeatMap
 
 			for (int i = 0; i < GradientSteps; i++)
 			{
-				floatValue = GradientHue[i].Value;
-				Scribe_Values.Look(ref floatValue, nameof(GradientHue) + "_" + i, Default_GradientHue[i]);
-				GradientHue[i].Value = floatValue;
+				var hue = GradientHue[i];
+				floatValue = hue.Value;
+				Scribe_Values.Look(ref floatValue, hue.Name, hue.DefaultValue);
+				hue.Value = floatValue;
 			}
 
 			boolValue = UseCustomRange;

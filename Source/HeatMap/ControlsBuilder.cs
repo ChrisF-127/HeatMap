@@ -67,6 +67,35 @@ namespace SyControlsBuilder
 			SettingsViewHeight = offsetY + SettingsRowHeight;
 		}
 
+		public static void CreateText(
+			ref float offsetY,
+			float viewWidth,
+			string text, 
+			Color color, 
+			TextAnchor textAnchor = TextAnchor.MiddleLeft, 
+			GameFont font = GameFont.Small)
+		{
+			// remember previous style
+			var prevColor = GUI.color;
+			var prevTextAnchor = Text.Anchor;
+			var prevFont = Text.Font;
+
+			// set desired style
+			GUI.color = color;
+			Text.Anchor = textAnchor;
+			Text.Font = font;
+
+			// draw text
+			Widgets.Label(new Rect(2, offsetY, viewWidth - 4, SettingsRowHeight), text);
+
+			// reset to previous style
+			Text.Font = prevFont;
+			Text.Anchor = prevTextAnchor;
+			GUI.color = prevColor;
+
+			offsetY += SettingsRowHeight;
+		}
+
 		public static T CreateNumeric<T>(
 			ref float offsetY,
 			float viewWidth,
@@ -92,7 +121,7 @@ namespace SyControlsBuilder
 
 			// Setting
 			var textFieldRect = new Rect(controlWidth + 2, offsetY + 6, controlWidth - 4, SettingsRowHeight - 12);
-			var valueBuffer = GetValueBuffer(ValueBuffers, valueBufferKey, value); // required for typing decimal points etc.
+			var valueBuffer = GetValueBuffer(valueBufferKey, value); // required for typing decimal points etc.
 			Widgets.TextFieldNumeric(textFieldRect, ref value, ref valueBuffer.Buffer, min, max);
 
 			// Tooltip
@@ -131,8 +160,8 @@ namespace SyControlsBuilder
 			bool defaultValue,
 			string text = null)
 		{
-			var controlWidth = GetControlWidth(viewWidth);
 			var isModified = value != defaultValue;
+			var controlWidth = GetControlWidth(viewWidth);
 
 			// Label
 			if (isModified)
@@ -156,6 +185,58 @@ namespace SyControlsBuilder
 			offsetY += SettingsRowHeight;
 			return value;
 		}
+
+		public static T CreateDropdown<T>(
+			ref float offsetY,
+			float viewWidth,
+			string label,
+			string tooltip,
+			TargetWrapper<T> valueWrapper,
+			T defaultValue,
+			IEnumerable<T> list,
+			Func<T, string> itemToString)
+			where T : struct, IComparable
+		{
+			var isModified = valueWrapper?.Value.Equals(defaultValue) != true;
+			var controlWidth = GetControlWidth(viewWidth);
+
+			// Label
+			if (isModified)
+				GUI.color = ModifiedColor;
+			Widgets.Label(new Rect(0, offsetY, controlWidth - 8, SettingsRowHeight), label);
+			GUI.color = OriColor;
+
+			// Menu Generator
+			IEnumerable<Widgets.DropdownMenuElement<T>> menuGenerator(TargetWrapper<T> vWrapper)
+			{
+				foreach (var item in list)
+				{
+					yield return new Widgets.DropdownMenuElement<T>
+					{
+						option = new FloatMenuOption(itemToString(item), () => vWrapper.Value = item),
+						payload = item,
+					};
+				}
+			}
+
+			// Dropdown
+			var rect = new Rect(controlWidth + 2, offsetY + 2, controlWidth - 4, SettingsRowHeight - 4);
+			Widgets.Dropdown(
+				rect,
+				valueWrapper,
+				null,
+				menuGenerator,
+				itemToString(valueWrapper.Value));
+			DrawTooltip(rect, tooltip);
+
+			// Reset
+			if (isModified && DrawResetButton(offsetY, viewWidth, itemToString(defaultValue)))
+				valueWrapper.Value = defaultValue;
+
+			offsetY += SettingsRowHeight;
+			return valueWrapper.Value;
+		}
+
 
 		public static bool DrawResetButton(float offsetY, float viewWidth, string tooltip)
 		{
@@ -186,25 +267,28 @@ namespace SyControlsBuilder
 		#endregion
 
 		#region PRIVATE METHODS
-		private static ValueBuffer<T> GetValueBuffer<T>(Dictionary<string, object> dictionary, string key, T value)
+		private static ValueBuffer<T> GetValueBuffer<T>(string key, T value)
 			where T : struct, IComparable
 		{
 			// find value buffer in dictionary
-			if (dictionary.TryGetValue(key, out var obj) 
-				&& obj is ValueBuffer<T> valueBuffer)
+			if (ValueBuffers.TryGetValue(key, out var obj))
 			{
-				// clear buffer if value changed
-				if (valueBuffer.Value.Equals(value) != true)
-					valueBuffer.Buffer = null;
-				// remember value
-				valueBuffer.Value = value;
-				// return value buffer
-				return valueBuffer;
+				if (obj is ValueBuffer<T> foundVB)
+				{
+					// clear buffer if value changed
+					if (foundVB.Value.Equals(value) != true)
+						foundVB.Buffer = null;
+					// remember value
+					foundVB.Value = value;
+					// return value buffer
+					return foundVB;
+				}
+				Log.ErrorOnce($"'{key}' found but not of correct type: expected '{typeof(ValueBuffer<T>)}', found '{obj?.GetType()}'", key.GetHashCode());
 			}
 			// create new value buffer, remember current value
-			valueBuffer = new ValueBuffer<T>(value);
-			dictionary[key] = valueBuffer;
-			return valueBuffer;
+			var newVB = new ValueBuffer<T>(value);
+			ValueBuffers[key] = newVB;
+			return newVB;
 		}
 		#endregion
 
@@ -215,41 +299,67 @@ namespace SyControlsBuilder
 			public string Buffer = null;
 			public T Value;
 
-			public ValueBuffer(T value) 
-			{ 
-				Value = value; 
+			public ValueBuffer(T value)
+			{
+				Value = value;
 			}
 		}
 		#endregion
 	}
 
-	public class ValueActionWrapper<T>
+	public class ValueSetting<T>
 		where T : IComparable
 	{
+		public string Name { get; set; }
+		public string Label { get; set; }
+		public string Description { get; set; }
+
+		public T DefaultValue { get; set; }
 		private T _value;
 		public T Value
 		{
 			get => _value;
 			set => Util.SetValue(ref _value, value, Action);
 		}
-		public Action Action { get; set; }
+		public Action<T> Action { get; set; }
 
-		public ValueActionWrapper(T value, Action action)
+		public ValueSetting(
+			string name,
+			string label,
+			string description,
+			T value,
+			T defaultValue,
+			Action<T> action)
 		{
+			Name = name;
+			Label = label;
+			Description = description;
+
 			Value = value;
+			DefaultValue = defaultValue;
 			Action = action;
 		}
 	}
-	
+
+	public class TargetWrapper<T>
+	{
+		public T Value { get; set; }
+
+		public TargetWrapper(T value)
+		{
+			Value = value;
+		}
+	}
+
 	public static class Util
 	{
-		public static void SetValue<T>(ref T storage, T value, Action action = null)
+		public static void SetValue<T>(ref T storage, T value, Action<T> action = null)
 			where T : IComparable
 		{
 			if (storage == null && value == null || storage?.Equals(value) == true)
 				return;
 			storage = value;
-			action?.Invoke();
+			action?.Invoke(value);
 		}
 	}
 }
