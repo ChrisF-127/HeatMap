@@ -1,4 +1,5 @@
-﻿using RimWorld;
+﻿using HarmonyLib;
+using RimWorld;
 using RimWorld.Planet;
 using System.Collections.Generic;
 using System.Reflection;
@@ -29,6 +30,11 @@ namespace HeatMap
 		#endregion
 
 		#region CONSTRUCTORS
+		static HeatMap()
+		{
+			var harmony = new Harmony("falc.heatmap");
+			harmony.PatchAll();
+		}
 		public HeatMap(ModContentPack content) : base(content)
 		{
 			Instance = this;

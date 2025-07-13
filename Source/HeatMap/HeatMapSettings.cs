@@ -25,7 +25,7 @@ namespace HeatMap
 
 		public const bool Default_ShowOutdoorThermometer = true;
 		public const int Default_OutdoorThermometerOpacity = 30;
-		public const bool Default_OutdoorThermometerFixed = false;
+		public const bool Default_OutdoorThermometerFixed = true;
 		public const float Default_OutdoorThermometerRight = 8f + HeatMap.BoxSize;
 		public const float Default_OutdoorThermometerTop = 8f;
 
@@ -97,13 +97,23 @@ namespace HeatMap
 		public int CustomRangeComfortMin
 		{
 			get => _customRangeComfortMin;
-			set => Util.SetValue(ref _customRangeComfortMin, value, HeatMap.Instance.ResetAll);
+			set => Util.SetValue(ref _customRangeComfortMin, value, () =>
+			{
+				if (_customRangeComfortMax <= value)
+					_customRangeComfortMax = value + 1;
+				HeatMap.Instance.ResetAll();
+			});
 		}
 		private int _customRangeComfortMax = Default_CustomRangeComfortMax;
 		public int CustomRangeComfortMax
 		{
 			get => _customRangeComfortMax;
-			set => Util.SetValue(ref _customRangeComfortMax, value, HeatMap.Instance.ResetAll);
+			set => Util.SetValue(ref _customRangeComfortMax, value, () =>
+			{
+				if (_customRangeComfortMin >= value)
+					_customRangeComfortMin = value - 1;
+				HeatMap.Instance.ResetAll();
+			});
 		}
 		#endregion
 
@@ -178,7 +188,17 @@ namespace HeatMap
 					Default_UpdateDelay,
 					nameof(UpdateDelay),
 					1,
-					9999);
+					10000,
+					unit: "ticks");
+				ShowTemperatureOverRooms = ControlsBuilder.CreateCheckbox(
+					ref offsetY,
+					width,
+					"FALCHM.ShowTemperatureOverRooms".Translate(),
+					"FALCHM.ShowTemperatureOverRoomsDesc".Translate(new NamedArgument(Default_ShowTemperatureOverRooms, "default")),
+					ShowTemperatureOverRooms,
+					Default_ShowTemperatureOverRooms);
+
+				offsetY += ControlsBuilder.SettingsRowMargin;
 
 				ShowOutdoorThermometer = ControlsBuilder.CreateCheckbox(
 					ref offsetY,
@@ -196,7 +216,8 @@ namespace HeatMap
 					Default_OutdoorThermometerOpacity,
 					nameof(OutdoorThermometerOpacity),
 					1,
-					100);
+					100,
+					unit: "%");
 				OutdoorThermometerFixed = ControlsBuilder.CreateCheckbox(
 					ref offsetY,
 					width,
@@ -204,7 +225,6 @@ namespace HeatMap
 					"FALCHM.ThermometerFixedDesc".Translate(new NamedArgument(Default_OutdoorThermometerFixed, "default")),
 					OutdoorThermometerFixed,
 					Default_OutdoorThermometerFixed);
-
 				OutdoorThermometerRight = ControlsBuilder.CreateNumeric(
 					ref offsetY,
 					width,
@@ -212,7 +232,8 @@ namespace HeatMap
 					"FALCHM.ThermometerRightDesc".Translate(new NamedArgument(Default_OutdoorThermometerRight, "default")),
 					OutdoorThermometerRight,
 					Default_OutdoorThermometerRight,
-					nameof(OutdoorThermometerRight));
+					nameof(OutdoorThermometerRight),
+					unit: "px");
 				OutdoorThermometerTop = ControlsBuilder.CreateNumeric(
 					ref offsetY,
 					width,
@@ -220,15 +241,10 @@ namespace HeatMap
 					"FALCHM.ThermometerTopDesc".Translate(new NamedArgument(Default_OutdoorThermometerTop, "default")),
 					OutdoorThermometerTop,
 					Default_OutdoorThermometerTop,
-					nameof(OutdoorThermometerTop));
+					nameof(OutdoorThermometerTop),
+					unit: "px");
 
-				ShowTemperatureOverRooms = ControlsBuilder.CreateCheckbox(
-					ref offsetY,
-					width,
-					"FALCHM.ShowTemperatureOverRooms".Translate(),
-					"FALCHM.ShowTemperatureOverRoomsDesc".Translate(new NamedArgument(Default_ShowTemperatureOverRooms, "default")),
-					ShowTemperatureOverRooms,
-					Default_ShowTemperatureOverRooms);
+				offsetY += ControlsBuilder.SettingsRowMargin;
 
 				for (int i = 0; i < GradientSteps; i++)
 				{
@@ -246,8 +262,11 @@ namespace HeatMap
 						Default_GradientHue[i],
 						nameof(GradientHue) + "_" + i,
 						0f,
-						360f);
+						360f,
+						unit: "°");
 				}
+
+				offsetY += ControlsBuilder.SettingsRowMargin;
 
 				UseCustomRange = ControlsBuilder.CreateCheckbox(
 					ref offsetY,
@@ -258,48 +277,55 @@ namespace HeatMap
 					Default_UseCustomRange);
 				if (UseCustomRange)
 				{
-					var min = (int)GenTemperature.CelsiusTo(-273f, Prefs.TemperatureMode);
-					var max = (int)GenTemperature.CelsiusTo(1000f, Prefs.TemperatureMode);
+					var min = -273;
+					var max = 1000;
 					CustomRangeMin = ControlsBuilder.CreateNumeric(
 						ref offsetY,
 						width,
 						"FALCHM.CustomRangeMin".Translate(),
-						$"{"FALCHM.CustomRangeMinDesc".Translate(new NamedArgument(MappedRange.min, "default"))} ({Prefs.TemperatureMode.ToStringHuman()})",
+						$"{"FALCHM.CustomRangeMinDesc".Translate(new NamedArgument(CelsiusTo(MappedRange.min), "default"))} ({Prefs.TemperatureMode.ToStringHuman()})",
 						CustomRangeMin,
 						Default_CustomRangeMin,
 						nameof(CustomRangeMin),
 						min,
-						max);
+						max,
+						unit: displayTemp(CustomRangeMin));
 					CustomRangeMax = ControlsBuilder.CreateNumeric(
 						ref offsetY,
 						width,
 						"FALCHM.CustomRangeMax".Translate(),
-						$"{"FALCHM.CustomRangeMaxDesc".Translate(new NamedArgument(MappedRange.max, "default"))} ({Prefs.TemperatureMode.ToStringHuman()})",
+						$"{"FALCHM.CustomRangeMaxDesc".Translate(new NamedArgument(CelsiusTo(MappedRange.max), "default"))} ({Prefs.TemperatureMode.ToStringHuman()})",
 						CustomRangeMax,
 						Default_CustomRangeMax,
 						nameof(CustomRangeMax),
 						min,
-						max);
+						max,
+						unit: displayTemp(CustomRangeMax));
 					CustomRangeComfortMin = ControlsBuilder.CreateNumeric(
 						ref offsetY,
 						width,
 						"FALCHM.CustomRangeComfortMin".Translate(),
-						$"{"FALCHM.CustomRangeComfortMinDesc".Translate(new NamedArgument(MinComfortTemp, "default"))} ({Prefs.TemperatureMode.ToStringHuman()})",
+						$"{"FALCHM.CustomRangeComfortMinDesc".Translate(new NamedArgument(CelsiusTo(MinComfortTemp), "default"))} ({Prefs.TemperatureMode.ToStringHuman()})",
 						CustomRangeComfortMin,
 						Default_CustomRangeComfortMin,
 						nameof(CustomRangeComfortMin),
 						min,
-						max);
+						max,
+						unit: displayTemp(CustomRangeComfortMin));
 					CustomRangeComfortMax = ControlsBuilder.CreateNumeric(
 						ref offsetY,
 						width,
 						"FALCHM.CustomRangeComfortMax".Translate(),
-						$"{"FALCHM.CustomRangeComfortMaxDesc".Translate(new NamedArgument(MaxComfortTemp, "default"))} ({Prefs.TemperatureMode.ToStringHuman()})",
+						$"{"FALCHM.CustomRangeComfortMaxDesc".Translate(new NamedArgument(CelsiusTo(MaxComfortTemp), "default"))} ({Prefs.TemperatureMode.ToStringHuman()})",
 						CustomRangeComfortMax,
 						Default_CustomRangeComfortMax,
 						nameof(CustomRangeComfortMax),
 						min,
-						max);
+						max,
+						unit: displayTemp(CustomRangeComfortMax));
+
+					string displayTemp(int v) =>
+						$"{CelsiusTo(v)} {GetTemperatureUnitText()}";
 				}
 			}
 			finally
@@ -391,6 +417,42 @@ namespace HeatMap
 			intValue = CustomRangeComfortMax;
 			Scribe_Values.Look(ref intValue, nameof(CustomRangeComfortMax), Default_CustomRangeComfortMax);
 			CustomRangeComfortMax = intValue;
+		}
+		#endregion
+
+		#region PRIVATE METHODS
+		private static string GetTemperatureUnitText() =>
+			GetTemperatureUnitText(Prefs.TemperatureMode);
+		private static string GetTemperatureUnitText(TemperatureDisplayMode mode)
+		{
+			switch (mode)
+			{
+				case TemperatureDisplayMode.Celsius:
+					return "°C";
+				case TemperatureDisplayMode.Fahrenheit:
+					return "°F";
+				case TemperatureDisplayMode.Kelvin:
+					return "K";
+			}
+			return "";
+		}
+		private static float CelsiusTo(float temp) =>
+			GenTemperature.CelsiusTo(temp, Prefs.TemperatureMode);
+		private static float ToCelsius(float temp) =>
+			ToCelsius(temp, Prefs.TemperatureMode);
+		private static float ToCelsius(float temp, TemperatureDisplayMode oldMode)
+		{
+			switch (oldMode)
+			{
+				case TemperatureDisplayMode.Celsius:
+					return temp;
+				case TemperatureDisplayMode.Kelvin:
+					return temp - 273;
+				case TemperatureDisplayMode.Fahrenheit:
+					return (temp - 32) / 1.8f;
+				default:
+					throw new InvalidOperationException();
+			}
 		}
 		#endregion
 	}

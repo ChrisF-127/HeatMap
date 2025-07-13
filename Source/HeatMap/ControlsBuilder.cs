@@ -17,12 +17,14 @@ namespace SyControlsBuilder
 		#endregion
 
 		#region CONSTANTS
-		private const float SettingsRowHeight = 32f;
+		public const float SettingsRowHeight = 32f;
+		public const float SettingsRowMargin = SettingsRowHeight * 0.25f;
+
 		private const float SettingsScrollbarWidth = 16f;
 		#endregion
 
 		#region FIELDS
-		private static readonly Dictionary<string, string> ValueBuffers = new Dictionary<string, string>();
+		private static readonly Dictionary<string, object> ValueBuffers = new Dictionary<string, object>();
 
 		private static readonly Color ModifiedColor = Color.cyan;
 
@@ -40,6 +42,8 @@ namespace SyControlsBuilder
 			OriTextFont = Text.Font;
 			OriTextAnchor = Text.Anchor;
 			OriColor = GUI.color;
+
+			Text.Anchor = TextAnchor.MiddleLeft;
 
 			var viewWidth = inRect.width - SettingsScrollbarWidth;
 
@@ -80,8 +84,6 @@ namespace SyControlsBuilder
 			var isModified = !value.Equals(defaultValue);
 			var controlWidth = GetControlWidth(viewWidth);
 
-			Text.Anchor = TextAnchor.MiddleLeft;
-
 			// Label
 			if (isModified)
 				GUI.color = ModifiedColor;
@@ -90,9 +92,10 @@ namespace SyControlsBuilder
 
 			// Setting
 			var textFieldRect = new Rect(controlWidth + 2, offsetY + 6, controlWidth - 4, SettingsRowHeight - 12);
-			var valueBuffer = GetOrAddDefault(ValueBuffers, valueBufferKey);
-			Widgets.TextFieldNumeric(textFieldRect, ref value, ref valueBuffer, min, max);
-			ValueBuffers[valueBufferKey] = valueBuffer;
+			var valueBuffer = GetValueBuffer(ValueBuffers, valueBufferKey, value); // required for typing decimal points etc.
+			Widgets.TextFieldNumeric(textFieldRect, ref value, ref valueBuffer.Buffer, min, max);
+
+			// Tooltip
 			if (!string.IsNullOrWhiteSpace(tooltip))
 				DrawTooltip(textFieldRect, tooltip);
 
@@ -177,15 +180,45 @@ namespace SyControlsBuilder
 
 		public static float GetControlWidth(float viewWidth) =>
 			viewWidth / 3 - 4;
+
+		public static void ResetValueBuffers() => 
+			ValueBuffers.Clear();
 		#endregion
 
 		#region PRIVATE METHODS
-		private static TValue GetOrAddDefault<TKey, TValue>(Dictionary<TKey, TValue> dictionary, TKey key, TValue defaultValue = default)
+		private static ValueBuffer<T> GetValueBuffer<T>(Dictionary<string, object> dictionary, string key, T value)
+			where T : struct, IComparable
 		{
-			if (dictionary.TryGetValue(key, out TValue value))
-				return value;
-			dictionary.Add(key, defaultValue);
-			return defaultValue;
+			// find value buffer in dictionary
+			if (dictionary.TryGetValue(key, out var obj) 
+				&& obj is ValueBuffer<T> valueBuffer)
+			{
+				// clear buffer if value changed
+				if (valueBuffer.Value.Equals(value) != true)
+					valueBuffer.Buffer = null;
+				// remember value
+				valueBuffer.Value = value;
+				// return value buffer
+				return valueBuffer;
+			}
+			// create new value buffer, remember current value
+			valueBuffer = new ValueBuffer<T>(value);
+			dictionary[key] = valueBuffer;
+			return valueBuffer;
+		}
+		#endregion
+
+		#region CLASSES
+		private class ValueBuffer<T>
+			where T : struct, IComparable
+		{
+			public string Buffer = null;
+			public T Value;
+
+			public ValueBuffer(T value) 
+			{ 
+				Value = value; 
+			}
 		}
 		#endregion
 	}
