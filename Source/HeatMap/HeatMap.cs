@@ -48,7 +48,7 @@ namespace HeatMap
 		{
 			if (Current.ProgramState != ProgramState.Playing
 				|| Find.CurrentMap == null
-				|| WorldRendererUtility.WorldRendered)
+				|| !WorldRendererUtility.DrawingMap)
 				return;
 
 			UpdateOutdoorThermometer();
@@ -63,12 +63,7 @@ namespace HeatMap
 				return;
 
 			if (HeatMapKeyBingings.ToggleHeatMap.JustPressed)
-			{
-				if (WorldRendererUtility.WorldRendered)
-					return;
-
 				Find.PlaySettings.showTemperatureOverlay = !Find.PlaySettings.showTemperatureOverlay;
-			}
 		}
 
 		public void WorldLoaded()
