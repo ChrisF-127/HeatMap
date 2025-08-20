@@ -151,6 +151,73 @@ namespace SyControlsBuilder
 			return value;
 		}
 
+		public static void CreateMultiNumeric<T>(
+			ref float offsetY,
+			float viewWidth,
+			string label,
+			string tooltip,
+			IList<ValueSetting<T>> values,
+			string valueBufferKey,
+			float min = 0f,
+			float max = 1e+9f,
+			ConvertDelegate<T> additionalText = null,
+			string unit = null)
+			where T : struct, IComparable
+		{
+			var isModified = values.Any(v => v.IsModified());
+			var controlWidth = GetControlWidth(viewWidth);
+
+			// Label
+			if (isModified)
+				GUI.color = ModifiedColor;
+			Widgets.Label(new Rect(0, offsetY, controlWidth - 8, SettingsRowHeight), label);
+			GUI.color = OriColor;
+
+			// Values
+			var offsetX = controlWidth + 2;
+			var width = (controlWidth - 4) / values.Count;
+			for (int i = 0; i < values.Count; i++)
+			{
+				// Setting
+				var value = values[i].Value;
+				var textFieldRect = new Rect(offsetX, offsetY + 6, width, SettingsRowHeight - 12);
+				var valueBuffer = GetValueBuffer(valueBufferKey + i, value); // required for typing decimal points etc.
+				Widgets.TextFieldNumeric(textFieldRect, ref value, ref valueBuffer.Buffer, min, max);
+				values[i].Value = value;
+
+				// Unit
+				DrawTextFieldUnit(textFieldRect, unit);
+
+				// Additional Text
+				if (additionalText != null)
+				{
+					var additionalTextRect = textFieldRect;
+					additionalTextRect.x += textFieldRect.width + 8;
+					additionalTextRect.width -= 8;
+					Widgets.Label(additionalTextRect, additionalText(value));
+				}
+
+				offsetX += width;
+			}
+
+			// Tooltip
+			var tooltipRect = new Rect(controlWidth + 2, offsetY + 6, controlWidth - 4, SettingsRowHeight - 12);
+			if (!string.IsNullOrWhiteSpace(tooltip))
+				DrawTooltip(tooltipRect, tooltip);
+
+			// Reset button
+			if (isModified && DrawResetButton(offsetY, viewWidth, string.Join(", ", values.Select(v => v.DefaultValue))))
+			{
+				for (int i = 0; i < values.Count; i++)
+				{
+					values[i].Reset();
+					ValueBuffers.Remove(valueBufferKey + i);
+				}
+			}
+
+			offsetY += SettingsRowHeight;
+		}
+
 		public static bool CreateCheckbox(
 			ref float offsetY,
 			float viewWidth,
@@ -339,6 +406,12 @@ namespace SyControlsBuilder
 			DefaultValue = defaultValue;
 			Action = action;
 		}
+
+		public bool IsModified() =>
+			!Value.Equals(DefaultValue);
+
+		public void Reset() =>
+			Value = DefaultValue;
 	}
 
 	public class TargetWrapper<T>

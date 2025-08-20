@@ -250,26 +250,21 @@ namespace HeatMap
 
 				offsetY += ControlsBuilder.SettingsRowMargin;
 
-				for (int i = 0; i < GradientSteps; i++)
-				{
-					var hue = GradientHue[i];
-					hue.Value = ControlsBuilder.CreateNumeric(
-						ref offsetY,
-						width,
-						"FALCHM.GradientHue".Translate(new NamedArgument(i, "index")),
-						"FALCHM.GradientHueDesc".Translate(
-							new NamedArgument(hue.DefaultValue, "default"),
-							new NamedArgument(MappedRange.min, "min"),
-							new NamedArgument(MappedRange.max, "max"),
-							new NamedArgument(MinComfortTemp, "comfortMin"),
-							new NamedArgument(MaxComfortTemp, "comfortMax")),
-						hue.Value,
-						hue.DefaultValue,
-						hue.Name,
-						0f,
-						360f,
-						unit: "°");
-				}
+				ControlsBuilder.CreateMultiNumeric(
+					ref offsetY,
+					width,
+					"FALCHM.GradientHue".Translate(),
+					"FALCHM.GradientHueDesc".Translate(
+						new NamedArgument(string.Join(", ", GradientHue.Select(v => v.DefaultValue)), "default"),
+						new NamedArgument(MappedRange.min, "min"),
+						new NamedArgument(MappedRange.max, "max"),
+						new NamedArgument(MinComfortTemp, "comfortMin"),
+						new NamedArgument(MaxComfortTemp, "comfortMax")),
+					GradientHue,
+					nameof(GradientHue),
+					0f,
+					360f,
+					unit: "°");
 
 				offsetY += ControlsBuilder.SettingsRowMargin;
 
