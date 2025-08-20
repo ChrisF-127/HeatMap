@@ -181,7 +181,7 @@ namespace SyControlsBuilder
 				// Setting
 				var value = values[i].Value;
 				var textFieldRect = new Rect(offsetX, offsetY + 6, width, SettingsRowHeight - 12);
-				var valueBuffer = GetValueBuffer(valueBufferKey + i, value); // required for typing decimal points etc.
+				var valueBuffer = GetValueBuffer(valueBufferKey + "_" + i, value); // required for typing decimal points etc.
 				Widgets.TextFieldNumeric(textFieldRect, ref value, ref valueBuffer.Buffer, min, max);
 				values[i].Value = value;
 
@@ -211,7 +211,7 @@ namespace SyControlsBuilder
 				for (int i = 0; i < values.Count; i++)
 				{
 					values[i].Reset();
-					ValueBuffers.Remove(valueBufferKey + i);
+					ValueBuffers.Remove(valueBufferKey + "_" + i);
 				}
 			}
 
