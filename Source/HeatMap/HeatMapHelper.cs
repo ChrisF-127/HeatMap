@@ -63,8 +63,7 @@ namespace HeatMap
 			var maxComfortTemp = (int)human.GetStatValueAbstract(StatDefOf.ComfyTemperatureMax) - 3;
 
 			var comfortDoubleRange = (maxComfortTemp - minComfortTemp) * 2;
-			var mappedTemperatureRange = new IntRange(
-				minComfortTemp - comfortDoubleRange, maxComfortTemp + comfortDoubleRange);
+			var mappedTemperatureRange = new IntRange(minComfortTemp - comfortDoubleRange, maxComfortTemp + comfortDoubleRange);
 
 			return (mappedTemperatureRange, minComfortTemp, maxComfortTemp);
 		}

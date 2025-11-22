@@ -40,7 +40,7 @@
   <FALCHM.ShowTemperatureOverRoomsDesc>When overlay is on, this will also display the room temperature over the centre of the room.
 (default: {default})</FALCHM.ShowTemperatureOverRoomsDesc>
 
-  <FALCHM.GradientHue>Colour gradient hue</FALCHM.GradientHue>
+  <FALCHM.GradientHue>Colour gradient hues</FALCHM.GradientHue>
   <FALCHM.GradientHueDesc>Defines which colours will be used for the overlay's colour gradient. Colours are given as hue in degree.
 (default: {default})
 
