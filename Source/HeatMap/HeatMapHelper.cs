@@ -10,6 +10,7 @@ using Verse;
 
 namespace HeatMap
 {
+	[StaticConstructorOnStartup]
 	public static class HeatMapHelper
 	{
 		internal static IntRange MappedTemperatureRange {  get; private set; }
