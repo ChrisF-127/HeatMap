@@ -60,7 +60,7 @@ namespace HeatMap
 		public int OutdoorThermometerOpacity
 		{
 			get => _outdoorThermometerOpacity;
-			set => Util.SetValue(ref _outdoorThermometerOpacity, value, v => HeatMap.Instance.ClearTemperatureTextureCache());
+			set => Util.SetValue(ref _outdoorThermometerOpacity, value, v => HeatMapHelper.WidgetTextures = null);
 		}
 		public bool OutdoorThermometerFixed { get; set; } = Default_OutdoorThermometerFixed;
 		public float OutdoorThermometerRight { get; set; } = Default_OutdoorThermometerRight;

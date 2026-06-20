@@ -1,9 +1,11 @@
 ﻿using HarmonyLib;
 using RimWorld;
 using RimWorld.Planet;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.UIElements;
 using Verse;
 
 namespace HeatMap
@@ -22,11 +24,13 @@ namespace HeatMap
 		#endregion
 
 		#region FIELDS
+		private bool _clickingThermometer = false;
 		private bool _draggingThermometer = false;
 		private float _dragThermometerRight = 0f;
 		private float _dragThermometerTop = 0f;
+		private string _thermometerTooltip;
 
-		private readonly Dictionary<int, Texture2D> _temperatureTextureCache = new Dictionary<int, Texture2D>();
+		private static FieldInfo _learningReadout_windowRect;
 		#endregion
 
 		#region CONSTRUCTORS
@@ -37,6 +41,10 @@ namespace HeatMap
 		}
 		public HeatMap(ModContentPack content) : base(content)
 		{
+			_learningReadout_windowRect = AccessTools.Field(typeof(LearningReadout), "windowRect");
+			if (_learningReadout_windowRect == null)
+				Log.Error("LearningReadout.windowRect not found");
+
 			Instance = this;
 
 			LongEventHandler.ExecuteWhenFinished(Initialize);
@@ -81,24 +89,31 @@ namespace HeatMap
 			var outRect = new Rect(UI.screenWidth - right, top, BoxSize, BoxSize);
 			if (TutorSystem.AdaptiveTrainingEnabled && Find.PlaySettings.showLearningHelper)
 			{
-				if (typeof(LearningReadout).GetField("windowRect", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(Find.Tutor.learningReadout) is Rect helpRect
+				if (_learningReadout_windowRect?.GetValue(Find.Tutor.learningReadout) is Rect helpRect
 					&& helpRect.Overlaps(outRect) == true)
 					outRect.x = helpRect.x - BoxSize - 5f;
 			}
 
-			if (!Settings.OutdoorThermometerFixed && Event.current.isMouse)
+			if (Event.current.isMouse)
 			{
 				switch (Event.current.type)
 				{
 					case EventType.MouseDown:
-						if (Mouse.IsOver(outRect) && Event.current.modifiers == EventModifiers.Shift)
+						if (Mouse.IsOver(outRect))
 						{
 							Event.current.Use();
 
-							_dragThermometerRight = Settings.OutdoorThermometerRight;
-							_dragThermometerTop = Settings.OutdoorThermometerTop;
+							if (!Settings.OutdoorThermometerFixed && Event.current.modifiers == EventModifiers.Shift)
+							{
+								_dragThermometerRight = Settings.OutdoorThermometerRight;
+								_dragThermometerTop = Settings.OutdoorThermometerTop;
 
-							_draggingThermometer = true;
+								_draggingThermometer = true;
+							}
+							else
+							{
+								_clickingThermometer = true;
+							}
 						}
 						break;
 					case EventType.MouseDrag:
@@ -114,40 +129,42 @@ namespace HeatMap
 						}
 						break;
 					case EventType.MouseUp:
-						if (_draggingThermometer)
+						if (Mouse.IsOver(outRect))
 						{
-							Event.current.Use();
+							if (_draggingThermometer)
+							{
+								Event.current.Use();
 
-							Settings.OutdoorThermometerRight = _dragThermometerRight;
-							Settings.OutdoorThermometerTop = _dragThermometerTop;
+								Settings.OutdoorThermometerRight = _dragThermometerRight;
+								Settings.OutdoorThermometerTop = _dragThermometerTop;
 
-							_draggingThermometer = false;
+								_draggingThermometer = false;
+							}
+							else if (_clickingThermometer)
+							{
+								Event.current.Use();
+
+								Find.PlaySettings.showTemperatureOverlay = !Find.PlaySettings.showTemperatureOverlay;
+							}
 						}
+						_clickingThermometer = false;
 						break;
 				}
 			}
 
+			if (HeatMapHelper.WidgetTextures == null)
+				HeatMapHelper.CreateWidgetTextures();
+
 			var temperature = Find.CurrentMap.mapTemperature.OutdoorTemp;
 			var textureIndex = HeatMapHelper.GetIndexForTemperature(temperature);
-			if (!_temperatureTextureCache.ContainsKey(textureIndex))
-			{
-				var backColor = HeatMapHelper.GetColorForTemperature(temperature);
-				backColor.a = Settings.OutdoorThermometerOpacity / 100f;
-				_temperatureTextureCache[textureIndex] = SolidColorMaterials.NewSolidColorTexture(backColor);
-			}
-			GUI.DrawTexture(outRect, _temperatureTextureCache[textureIndex]);
-			GUI.DrawTexture(outRect, Resources.DisplayBoder);
+			GUI.DrawTexture(outRect, HeatMapHelper.WidgetTextures[textureIndex]);
 
-			var temperatureForDisplay = temperature.ToStringTemperature("F0");
 			Text.Font = GameFont.Medium;
 			Text.Anchor = TextAnchor.MiddleCenter;
 			GUI.color = Color.white;
-			Widgets.Label(outRect, temperatureForDisplay);
+			Widgets.Label(outRect, temperature.ToStringTemperature("F0"));
 
-			if (Widgets.ButtonInvisible(outRect))
-				Find.PlaySettings.showTemperatureOverlay = !Find.PlaySettings.showTemperatureOverlay;
-
-			TooltipHandler.TipRegion(outRect, "FALCHM.ThermometerTooltip".Translate());
+			TooltipHandler.TipRegion(outRect, _thermometerTooltip);
 
 			Text.Anchor = TextAnchor.UpperLeft;
 		}
@@ -156,13 +173,9 @@ namespace HeatMap
 		{
 			HeatMapHelper.RegenerateColorMap();
 			TemperatureDisplayer.Reset();
-			ClearTemperatureTextureCache();
 
 			Find.CurrentMap?.mapTemperature?.Drawer?.SetDirty();
 		}
-
-		public void ClearTemperatureTextureCache() => 
-			_temperatureTextureCache.Clear();
 		#endregion
 
 		#region OVERRIDES
@@ -181,6 +194,8 @@ namespace HeatMap
 		private void Initialize()
 		{
 			Settings = GetSettings<HeatMapSettings>();
+
+			_thermometerTooltip = "FALCHM.ThermometerTooltip".Translate();
 		}
 		#endregion
 	}
